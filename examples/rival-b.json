@@ -1,0 +1,3 @@
+{"storeId":"1000000002","query":{"country":"us","categoryId":"all","chartType":"free","limit":30},
+ "history":[{"day":"2026-10-15","rank":40},{"day":"2026-10-16","rank":42},{"day":"2026-10-17","rank":44},{"day":"2026-10-18","rank":47},{"day":"2026-10-19","rank":51},{"day":"2026-10-20","rank":55},{"day":"2026-10-21","rank":56}],
+ "app":{"storeId":"1000000002","name":"Example Rival B","developer":"Example Studio"}}

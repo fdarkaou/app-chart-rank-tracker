@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Store chart rank tracker</title>
+<meta name="description" content="Paste App Store chart history JSON for your competitors and get a rank table with daily and weekly movement and a sparkline per app. Runs in your browser.">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; color: #1b1b1f; }
+  textarea { width: 100%; min-height: 180px; font: 13px ui-monospace, monospace; }
+  button { padding: .5rem 1rem; margin: .5rem .5rem .5rem 0; cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border-bottom: 1px solid #ddd; padding: .4rem .5rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .up { color: #1a7f37; } .down { color: #cf222e; } .muted { color: #777; }
+  .err { color: #cf222e; white-space: pre-wrap; }
+  footer { margin-top: 2.5rem; font-size: 13px; color: #555; }
+</style>
+</head>
+<body>
+<h1>App Store chart rank tracker</h1>
+<p>See where your competitors sit in the App Store charts and how they moved. Paste one or more chart history responses below (a JSON object, or an array of them, or one object per line). Nothing leaves your browser.</p>
+<textarea id="in" spellcheck="false" placeholder='{"storeId":"...","history":[{"day":"2026-10-20","rank":12}], "app":{"name":"..."}}'></textarea>
+<div>
+  <button id="go">Build table</button>
+  <button id="ex">Load example data</button>
+  <label>Movement window <input id="win" type="number" value="7" min="1" max="100" style="width:4em"> days</label>
+</div>
+<div id="err" class="err"></div>
+<div id="out"></div>
+
+<h2>Where to get the JSON</h2>
+<p>The input is the chart history response from <a href="https://peekpanda.com">PeekPanda</a>, which keeps dated daily snapshots of the public Apple free, paid and grossing charts: <code>GET /v1/charts/apps/{storeId}/history</code> on the API, or the <code>get_app</code> tool with action <code>chart_history</code> over MCP. You need a PeekPanda account. See the <a href="https://peekpanda.com/docs/apple-chart-history">chart history docs</a>. Grossing is a position, not revenue.</p>
+<p>A command-line version with CSV output and a Slack alert lives in the <a href="https://github.com/fdarkaou/app-chart-rank-tracker">GitHub repo</a>.</p>
+<footer>MIT licensed. Example data is made up.</footer>
+
+<script type="module">
+import { summarise } from './track.js';
+const $ = (id) => document.getElementById(id);
+const EX = [
+  {storeId:"1000000001",query:{country:"us",categoryId:"all",chartType:"free"},history:[{day:"2026-10-14",rank:18},{day:"2026-10-15",rank:16},{day:"2026-10-16",rank:15},{day:"2026-10-18",rank:12},{day:"2026-10-19",rank:11},{day:"2026-10-20",rank:12},{day:"2026-10-21",rank:4}],app:{name:"Example Rival A"}},
+  {storeId:"1000000002",query:{country:"us",categoryId:"all",chartType:"free"},history:[{day:"2026-10-15",rank:40},{day:"2026-10-16",rank:42},{day:"2026-10-17",rank:44},{day:"2026-10-18",rank:47},{day:"2026-10-19",rank:51},{day:"2026-10-20",rank:55},{day:"2026-10-21",rank:56}],app:{name:"Example Rival B"}},
+  {storeId:"1000000003",query:{country:"us",categoryId:"all",chartType:"free"},history:[],app:{name:"Example Rival C"}}
+];
+function parseInput(t) {
+  t = t.trim(); if (!t) return [];
+  try { const v = JSON.parse(t); return Array.isArray(v) ? v : [v]; }
+  catch { return t.split(/\n(?=\s*\{)/).map((s) => JSON.parse(s)); }
+}
+function spark(history) {
+  const pts = history.filter((p) => Number.isFinite(p.rank)).sort((a, b) => a.day.localeCompare(b.day));
+  if (pts.length < 2) return '';
+  const w = 120, h = 28, max = Math.max(...pts.map((p) => p.rank)), min = Math.min(...pts.map((p) => p.rank));
+  const t0 = Date.parse(pts[0].day), t1 = Date.parse(pts.at(-1).day) || t0 + 1;
+  const xy = pts.map((p) => [((Date.parse(p.day) - t0) / (t1 - t0 || 1)) * w, max === min ? h / 2 : ((p.rank - min) / (max - min)) * (h - 4) + 2]);
+  // Break the line where a day is missing, so a gap stays a gap.
+  let d = '';
+  xy.forEach(([x, y], i) => {
+    const gap = i > 0 && Date.parse(pts[i].day) - Date.parse(pts[i - 1].day) > 86400000;
+    d += `${i === 0 || gap ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)} `;
+  });
+  return `<svg width="${w}" height="${h}" aria-label="rank trend, top is better"><path d="${d}" fill="none" stroke="#0969da" stroke-width="1.5"/></svg>`;
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mv = (n) => n == null ? '<span class="muted">–</span>' : n > 0 ? `<span class="up">▲${n}</span>` : n < 0 ? `<span class="down">▼${-n}</span>` : '=';
+function render() {
+  $('err').textContent = ''; $('out').innerHTML = '';
+  let data; try { data = parseInput($('in').value); } catch (e) { $('err').textContent = 'Could not read JSON: ' + e.message; return; }
+  if (!data.length) return;
+  const win = Number($('win').value) || 7;
+  const rows = data.map((r) => ({ r, s: summarise(r, { movedWindow: win }) })).sort((a, b) => (a.s.latest ?? Infinity) - (b.s.latest ?? Infinity));
+  const q = data[0].query ?? {};
+  const body = rows.map(({ r, s }) => s.status !== 'charted'
+    ? `<tr><td>${esc(s.name)}</td><td colspan="8" class="muted">not in this chart</td></tr>`
+    : `<tr><td>${esc(s.name)}</td><td>${s.latest}</td><td>${s.latestDay}</td><td>${mv(s.change)}</td><td>${mv(s.changeWindow)}</td><td>${s.best}</td><td>${s.worst}</td><td>${s.gaps}</td><td>${spark(r.history)}</td></tr>`).join('');
+  $('out').innerHTML = `<p class="muted">Chart: ${esc(q.chartType ?? 'free')} · storefront ${esc(q.country ?? 'us')} · category ${esc(q.categoryId ?? 'all')}</p>
+  <table><thead><tr><th>App</th><th>Rank</th><th>Day</th><th>vs prev</th><th>${win}d</th><th>Best</th><th>Worst</th><th>Gap days</th><th>Trend (top = better)</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+$('go').onclick = render;
+$('ex').onclick = () => { $('in').value = JSON.stringify(EX, null, 1); render(); };
+</script>
+</body>
+</html>

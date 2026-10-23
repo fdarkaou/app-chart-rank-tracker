@@ -1,0 +1,14 @@
+{
+  "name": "app-chart-rank-tracker",
+  "version": "1.0.0",
+  "description": "Track your competitors' App Store chart ranks from PeekPanda chart history: a Markdown/CSV table, movement alerts, and an optional Slack ping.",
+  "type": "module",
+  "bin": { "app-chart-rank-tracker": "cli.js" },
+  "scripts": { "test": "node --test test/" },
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "author": "Fekri Darkaoui",
+  "repository": { "type": "git", "url": "https://github.com/fdarkaou/app-chart-rank-tracker.git" },
+  "homepage": "https://fdarkaou.github.io/app-chart-rank-tracker/",
+  "keywords": ["aso", "app-store", "rank-tracker", "app-store-charts", "peekpanda", "competitor-analysis"]
+}

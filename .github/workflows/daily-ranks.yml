@@ -1,0 +1,24 @@
+# Example: run the tracker every morning and ping Slack when a rival moves 5+ places.
+# Add PEEKPANDA_TOKEN and SLACK_WEBHOOK_URL as repository secrets. Edit the store ids below.
+name: daily chart ranks
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch:
+jobs:
+  ranks:
+    if: ${{ vars.ENABLE_RANK_TRACKER == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Rank table
+        env:
+          PEEKPANDA_TOKEN: ${{ secrets.PEEKPANDA_TOKEN }}
+        run: node cli.js 1000000001 1000000002 --country us --chart free >> "$GITHUB_STEP_SUMMARY"
+      - name: Slack alert for big movers
+        env:
+          PEEKPANDA_TOKEN: ${{ secrets.PEEKPANDA_TOKEN }}
+        run: node cli.js 1000000001 1000000002 --alert 5 --slack-webhook "${{ secrets.SLACK_WEBHOOK_URL }}"

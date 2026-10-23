@@ -1,0 +1,3 @@
+{"storeId":"1000000001","query":{"country":"us","categoryId":"all","chartType":"free","limit":30},
+ "history":[{"day":"2026-10-14","rank":18},{"day":"2026-10-15","rank":16},{"day":"2026-10-16","rank":15},{"day":"2026-10-18","rank":12},{"day":"2026-10-19","rank":11},{"day":"2026-10-20","rank":12},{"day":"2026-10-21","rank":4}],
+ "app":{"storeId":"1000000001","name":"Example Rival A","developer":"Example Labs"}}
